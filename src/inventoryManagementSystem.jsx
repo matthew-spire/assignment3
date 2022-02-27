@@ -3,7 +3,7 @@ function ProductRow(props) {
   return (
     <tr>
       <td>{product.name}</td>
-      <td>{product.price}</td>
+      <td>{new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'}).format(product.price)}</td>
       <td>{product.category}</td>
       <td><a href={product.imageURL} target="_blank">View</a></td>
     </tr>
@@ -42,10 +42,10 @@ class ProductAdd extends React.Component {
 
   handleSubmit(e) {
     e.preventDefault();
-    const form = document.forms.productAdd;
+    const form = document.forms.addProduct;
     const product = {
       category: form.category.value,
-      price: form.price.value,
+      price: parseFloat(form.price.value.substring(1)),
       name: form.name.value,
       imageURL: form.imageURL.value,
     }
@@ -58,7 +58,7 @@ class ProductAdd extends React.Component {
 
   render() {
     return (
-      <form name="productAdd" onSubmit={this.handleSubmit}>
+      <form name="addProduct" onSubmit={this.handleSubmit}>
         <div className="row">
           <div className="column">
             <label>Category</label>
@@ -98,7 +98,7 @@ class ProductAdd extends React.Component {
 class ProductList extends React.Component {
   constructor() {
     super();
-    this.state = { products: [] };
+    this.state = {products: []};
     this.createProduct = this.createProduct.bind(this);
   }
 
@@ -106,17 +106,42 @@ class ProductList extends React.Component {
     this.loadData();
   }
 
-  loadData() {
-    setTimeout(() => {
-      this.setState({ products: [] });
-    }, 500);
+  async loadData() {
+    const query = `query {
+      productList {
+        id
+        category
+        name
+        price
+        imageURL
+      }
+    }`;
+
+    const response = await fetch('/graphql', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query})
+    });
+
+    const body = await response.text();
+    const result = JSON.parse(body);
+    this.setState({products: result.data.productList});
   }
 
-  createProduct(product) {
-    const productArr = this.state.products.slice();
-    product.id = this.state.products.length + 1;
-    productArr.push(product)
-    this.setState({ products: productArr });
+  async createProduct(product) {
+    const query = `mutation addProduct($product: ProductInputs!) {
+      addProduct(product: $product) {
+        id
+      }
+    }`;
+
+    await fetch('/graphql', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ query, variables: {product}})
+    });
+
+    await this.loadData();
   }
 
   render() {

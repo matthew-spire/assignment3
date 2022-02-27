@@ -1,6 +1,9 @@
 function ProductRow(props) {
   const product = props.product;
-  return /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, product.name), /*#__PURE__*/React.createElement("td", null, product.price), /*#__PURE__*/React.createElement("td", null, product.category), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("a", {
+  return /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, product.name), /*#__PURE__*/React.createElement("td", null, new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(product.price)), /*#__PURE__*/React.createElement("td", null, product.category), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("a", {
     href: product.imageURL,
     target: "_blank"
   }, "View")));
@@ -26,10 +29,10 @@ class ProductAdd extends React.Component {
 
   handleSubmit(e) {
     e.preventDefault();
-    const form = document.forms.productAdd;
+    const form = document.forms.addProduct;
     const product = {
       category: form.category.value,
-      price: form.price.value,
+      price: parseFloat(form.price.value.substring(1)),
       name: form.name.value,
       imageURL: form.imageURL.value
     };
@@ -42,7 +45,7 @@ class ProductAdd extends React.Component {
 
   render() {
     return /*#__PURE__*/React.createElement("form", {
-      name: "productAdd",
+      name: "addProduct",
       onSubmit: this.handleSubmit
     }, /*#__PURE__*/React.createElement("div", {
       className: "row"
@@ -104,21 +107,51 @@ class ProductList extends React.Component {
     this.loadData();
   }
 
-  loadData() {
-    setTimeout(() => {
-      this.setState({
-        products: []
-      });
-    }, 500);
+  async loadData() {
+    const query = `query {
+      productList {
+        id
+        category
+        name
+        price
+        imageURL
+      }
+    }`;
+    const response = await fetch('/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        query
+      })
+    });
+    const body = await response.text();
+    const result = JSON.parse(body);
+    this.setState({
+      products: result.data.productList
+    });
   }
 
-  createProduct(product) {
-    const productArr = this.state.products.slice();
-    product.id = this.state.products.length + 1;
-    productArr.push(product);
-    this.setState({
-      products: productArr
+  async createProduct(product) {
+    const query = `mutation addProduct($product: ProductInputs!) {
+      addProduct(product: $product) {
+        id
+      }
+    }`;
+    await fetch('/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        query,
+        variables: {
+          product
+        }
+      })
     });
+    await this.loadData();
   }
 
   render() {
